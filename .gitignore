@@ -1,0 +1,16 @@
+﻿.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.rds
+*.RDS
+*.rda
+*.rar
+*.zip
+slurm-*.out
+logs/
+runs/
+results/
+.venv/
+__pycache__/
+*.7z
