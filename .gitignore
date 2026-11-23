@@ -14,3 +14,33 @@ results/
 .venv/
 __pycache__/
 *.7z
+
+## Data and generated results
+*.csv
+*.tsv
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.eps
+*.tif
+*.tiff
+*.pdf
+*.rds
+*.RDS
+*.rda
+*.RData
+*.Rhistory
+*.zip
+*.7z
+*.rar
+## Compute outputs
+slurm-*.out
+slurm-*.err
+logs/
+runs/
+results/
+## Machine-specific files
+.Rproj.user/
+__pycache__/
+.venv/
