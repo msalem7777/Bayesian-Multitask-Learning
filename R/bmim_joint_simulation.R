@@ -73,11 +73,33 @@ bmim_simulation_selection_prior <- function(X, y, loc_slices, W_mat,
   p_prop
 }
 
+# Validate the four ORIGINAL Case-2 group moments. These are computed from
+# an external ABIDE dataset, never committed to Git. The function refuses
+# missing or degenerate group scales, rather than inserting guessed values.
+bmim_simulation_check_demo_stats <- function(demo_stats) {
+  names_required <- c("sim_mean_pat", "sim_sd_pat",
+                      "sim_mean_ctr", "sim_sd_ctr")
+  if (!is.list(demo_stats) ||
+      !all(names_required %in% names(demo_stats))) {
+    stop("Case 2 needs demo_stats with four group mean/SD fields.")
+  }
+  out <- demo_stats[names_required]
+  if (!all(vapply(out, function(x) is.numeric(x) && length(x) == 1L &&
+                  is.finite(x), logical(1L))) ||
+      out$sim_sd_pat <= 0 || out$sim_sd_ctr <= 0) {
+    stop("Case 2 group means must be finite and SD values positive.")
+  }
+  out
+}
+
 # Fit one data-generating replicate, without FocusGP or the legacy score test.
 #
 # The legacy 'functional_linear' generator fixes signal support to timepoints
-# 61:80 of a 5*num_T trajectory at the three chosen nodes. This function
-# deliberately restricts to that generator so the truth is unambiguous.
+# 61:80 of a 5*num_T trajectory at the three chosen nodes.
+# The legacy 'real_or_noise' generator uses an ABIDE-moment-based response
+# mixture. It is the original R code's historical Case-2 driver, BUT IS NOT
+# an implementation of the manuscript's K_gen %*% alpha threshold equation.
+# For that branch, no true time interval is specified by the generator.
 #
 # When W_mat=NULL, connectivity is estimated from X alone using the existing
 # build_W_matrix(mode='data') procedure. It does NOT use chosen_locs or y.
@@ -99,7 +121,8 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
                                 connec = 1,
                                 min_domain_length = 1L,
                                 n_domain_updates_per_sweep = 1L,
-                                domain_prior_jump_prob = 0.5) {
+                                domain_prior_jump_prob = 0.5,
+                                demo_stats = NULL) {
   required <- c("simulate_one_dataset", "build_W_matrix",
                 "bmim_joint_domains_from_features")
   missing <- required[!vapply(required, exists, logical(1L),
@@ -110,14 +133,19 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
   if (!requireNamespace("mvtnorm", quietly = TRUE)) {
     stop("The legacy functional-data simulator requires mvtnorm.")
   }
-  if (!identical(cfg$sim_setting, "functional_linear")) {
-    stop("This adapter supports cfg$sim_setting='functional_linear' only.")
+  if (!(cfg$sim_setting %in% c("functional_linear", "real_or_noise"))) {
+    stop("The adapter supports 'functional_linear' or 'real_or_noise' only.")
+  }
+  if (identical(cfg$sim_setting, "real_or_noise")) {
+    # The original Case-2 code derives these from ABIDE demographics.
+    # No fabricated defaults are permitted for a scientific simulation.
+    demo_stats <- bmim_simulation_check_demo_stats(demo_stats)
   }
   if (length(cfg$chosen_locs) != 3L ||
       any(cfg$chosen_locs < 1L | cfg$chosen_locs > cfg$num_locs) ||
       length(unique(cfg$chosen_locs)) != 3L ||
       cfg$num_T < 16L || cfg$nx < 3L) {
-    stop("Legacy functional_linear generator requires 3 distinct chosen nodes, num_T >= 16, nx >= 3.")
+    stop("Legacy functional generators require 3 distinct chosen nodes, num_T >= 16, nx >= 3.")
   }
   if (length(real_process) != 1L || !real_process %in% c(0, 1) ||
       length(seed) != 1L || !is.finite(seed) || seed < 1 ||
@@ -137,12 +165,15 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
   set.seed(as.integer(seed))
   cfg_local <- cfg
   cfg_local$seed <- NULL
-  # The four demographic parameters below are unused by 'functional_linear'.
-  # NA flags that they are deliberately irrelevant in this generator branch.
+  # For functional_linear, group moments are unused; for real_or_noise,
+  # require the four actual group moments from an external source.
+  moments <- if (identical(cfg$sim_setting, "real_or_noise")) demo_stats else
+    list(sim_mean_pat = NA_real_, sim_sd_pat = NA_real_,
+         sim_mean_ctr = NA_real_, sim_sd_ctr = NA_real_)
   sim <- simulate_one_dataset(
     cfg = cfg_local,
-    sim_mean_pat = NA_real_, sim_sd_pat = NA_real_,
-    sim_mean_ctr = NA_real_, sim_sd_ctr = NA_real_,
+    sim_mean_pat = moments$sim_mean_pat, sim_sd_pat = moments$sim_sd_pat,
+    sim_mean_ctr = moments$sim_mean_ctr, sim_sd_ctr = moments$sim_sd_ctr,
     real_process = as.integer(real_process)
   )
   design <- bmim_simulation_full_design(sim$full_dat2)
@@ -181,9 +212,15 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
     fit = fit,
     truth = list(real_process = as.integer(real_process),
                  true_nodes = as.integer(sim$true_locs),
-                 # Signal coefficients of the existing functional-linear DGP.
-                 true_timepoints = if (real_process == 1L) 61:80 else integer(0)),
+                 # Real-or-noise has NO defined domain truth in legacy R code.
+                 true_domain_defined = identical(cfg$sim_setting, "functional_linear") &&
+                   real_process == 1L,
+                 true_timepoints = if (identical(cfg$sim_setting, "functional_linear") &&
+                   real_process == 1L) 61:80 else integer(0)),
     config = list(seed = as.integer(seed), nx = cfg$nx,
+                  sim_setting = cfg$sim_setting,
+                  demo_stats = if (identical(cfg$sim_setting, "real_or_noise"))
+                    demo_stats else NULL,
                   num_locs = cfg$num_locs, num_T = cfg$num_T,
                   max_domain_length = max_domain_length,
                   prior_mode = prior_mode, pi_b = pi_b,

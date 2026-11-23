@@ -181,7 +181,9 @@ bmim_batch_main <- function() {
                                  stdout = TRUE, stderr = FALSE)[1L],
                           error = function(e) "unknown")
   )
-  cat("START:", paste(names(metadata), unlist(metadata), sep = "=", collapse = " "), "\n")
+  cat("START:", paste(vapply(names(metadata), function(key) {
+    paste0(key, "=", paste(metadata[[key]], collapse = ","))
+  }, character(1L)), collapse = " "), "\n")
   started <- Sys.time()
   result <- bmim_simulation_one(
     cfg = cfg, real_process = info$truth,
