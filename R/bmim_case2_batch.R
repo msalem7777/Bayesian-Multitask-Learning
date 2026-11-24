@@ -104,8 +104,16 @@ bmim_batch_main <- function() {
   seed_base <- bmim_batch_integer("BMIM_BASE_SEED", 19700L, 1L)
   pi_b <- bmim_batch_probability("BMIM_PI_B", 0.5)
   prior <- Sys.getenv("BMIM_PRIOR", unset = "vb")
+  vb_summary <- Sys.getenv("BMIM_VB_SUMMARY", unset = "mi")
+  if (!vb_summary %in% c("mi", "sq.corr"))
+    stop("No-scalar simulation requires BMIM_VB_SUMMARY=mi or sq.corr.")
+  vb_version <- if (prior == "vb") "vb2" else "flat"
+  if (prior == "flat") vb_summary <- "flat"
   randomize <- bmim_batch_integer("BMIM_RANDOMIZE_NODES", 0L, 0L)
   tag <- bmim_batch_validate_tag(Sys.getenv("BMIM_RUN_TAG", unset = "case2_legacy_pilot"))
+  # Never continue a pre-vb2 production tag with different empirical weights.
+  if (prior == "vb" && grepl("^production_case[12]_p(10|30)_100x2$",tag))
+    stop("Historical VB campaign tag: use the old pinned checkout, or submit a NEW vb2 campaign.")
   fixed_nodes <- Sys.getenv("BMIM_CHOSEN_NODES", unset = "2,5,8")
   task_id <- bmim_batch_integer("SLURM_ARRAY_TASK_ID",
                                 bmim_batch_integer("BMIM_TASK_ID", 0L), 0L)
@@ -141,6 +149,7 @@ bmim_batch_main <- function() {
             iterations, burnin, chains, prior,
             format(pi_b, scientific = FALSE, trim = TRUE), randomize)
   )
+  if (prior == "vb") run_dir <- file.path(run_dir,paste0(vb_version,"_",vb_summary))
   dir.create(run_dir, recursive = TRUE, showWarnings = FALSE)
   if (!dir.exists(run_dir)) stop("Could not create run directory: ", run_dir)
   output_file <- file.path(run_dir,
@@ -152,6 +161,8 @@ bmim_batch_main <- function() {
     if (is.null(previous) || !is.list(previous) ||
         !identical(previous$batch_metadata$seed, seed) ||
         !identical(previous$batch_metadata$task_id, task_id) ||
+        (prior == "vb" && (!identical(previous$batch_metadata$vb_version,vb_version) ||
+                           !identical(previous$batch_metadata$vb_summary,vb_summary))) ||
         !identical(previous$batch_metadata$chosen_nodes, chosen_nodes) ||
         !identical(previous$batch_metadata$stats_md5, stats_md5)) {
       stop("Existing output is incomplete or does not match this task: ", output_file)
@@ -162,6 +173,7 @@ bmim_batch_main <- function() {
 
   dependencies <- c("mvtnorm", "ClusterR")
   if (prior == "flat") dependencies <- "mvtnorm"
+  else if (vb_summary == "mi") dependencies <- c(dependencies, "infotheo")
   missing <- dependencies[!vapply(dependencies, requireNamespace,
                                    logical(1L), quietly = TRUE)]
   if (length(missing)) stop("Missing R dependencies: ", paste(missing, collapse = ", "))
@@ -195,7 +207,8 @@ bmim_batch_main <- function() {
     replicate = info$replicate, task_id = task_id, seed = seed,
     chosen_nodes = chosen_nodes, n = n, p = p, max_domain_length = max_length,
     iterations = iterations, burnin = burnin, chains = chains,
-    prior_mode = prior, pi_b = pi_b, randomize_nodes = randomize,
+    prior_mode = prior, vb_summary = vb_summary, vb_version = vb_version,
+    pi_b = pi_b, randomize_nodes = randomize,
     job_id = Sys.getenv("SLURM_JOB_ID", unset = "not_slurm"),
     git_commit = tryCatch(system2("git", c("rev-parse", "HEAD"),
                                  stdout = TRUE, stderr = FALSE)[1L],
@@ -209,6 +222,7 @@ bmim_batch_main <- function() {
     cfg = cfg, real_process = info$truth,
     max_domain_length = max_length, n_iter = iterations,
     burnin = burnin, n_chains = chains, prior_mode = prior,
+    vb_summary = vb_summary,
     pi_b = pi_b, seed = seed, demo_stats = demo_stats
   )
   result$batch_metadata <- metadata

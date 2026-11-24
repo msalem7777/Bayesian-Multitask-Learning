@@ -82,6 +82,7 @@ resource limits, and whether to randomize node identities.
 | `BMIM_CHAINS` | `4` | Independent chains |
 | `BMIM_REPLICATES_PER_SCENARIO` | `1` | Number of null AND number of signal replicates |
 | `BMIM_PRIOR` | `vb` | `vb` or `flat` |
+| `BMIM_VB_SUMMARY` | `mi` | `mi` or `sq.corr` (no-scalar runs) |
 | `BMIM_PI_B` | `0.5` | Prior probability the GP is present |
 | `BMIM_BASE_SEED` | `19700` | Seed of task 0; task ID is added |
 | `BMIM_RUN_TAG` | `pilot` | Results directory name; set uniquely per study |
@@ -108,11 +109,13 @@ From `R/`:
 Rscript --vanilla -e "source('checks/bmim_case1_batch_smoke.R')"
 ```
 
-For the previously passing seven checks:
+For the eight-check suite and additional simulation checks:
 
 ```bash
 Rscript --vanilla -e "source('checks/run_all_tests_joint.R'); source('checks/bmim_joint_simulation_smoke.R'); source('checks/bmim_simulation_covariance_smoke.R')"
 ```
 
 The batch runner checks for the covariance repair, requires ClusterR in VB
-mode, and records the strict global decision `P(GP) > 0.5`.
+mode and infotheo for MI, and records the strict global decision `P(GP) > 0.5`.
+
+New VB runs use versioned result directories; see `../R/VB_PRIOR.md`. Do not pull into an active historical campaign checkout.

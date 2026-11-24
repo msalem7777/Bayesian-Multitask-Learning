@@ -1,14 +1,14 @@
 # =============================================================================
 # bmim_joint_simulation.R -- Reproducible synthetic-data integration for BMIM.
 #
-# This file is ADDITIVE: it does not change run_simulation.R, ISGM_core.R,
-# or any of the six validated MCMC checks.
+# This adapter uses the modular vb2 prior constructor; the data generator
+# and joint GP likelihood remain unchanged.
 #
 # Required source order (from the project's R/ directory):
 #   source("data_generation.R")
 #   source("run_simulation.R")
 #   source("correlation_matrix_constructor.R")
-#   source("ISGM_core.R")                 # needed for optional legacy EB VB
+#   source("ISGM_core.R")                 # legacy helpers (if needed)
 #   source("bmim_gp_updates.R")
 #   source("bmim_global_gp_test.R")
 #   source("bmim_joint_domains.R")
@@ -41,36 +41,20 @@ bmim_simulation_full_design <- function(full_dat2) {
        grps_vec = lapply(lens, seq_len), n_subjects = n)
 }
 
-# This exactly mirrors the squared-correlation / VBprop construction in
-# ISGM_core.R for VBprop=1, VBsumm="sq.corr", using COMPLETE trajectories.
-# "flat" is a deliberately different, clearly named benchmark; it is NOT VB.
+# Construct empirical weights once on complete trajectories. Flat is a
+# separately named benchmark; no mixture or association calculation is needed.
 bmim_simulation_selection_prior <- function(X, y, loc_slices, W_mat,
-                                            mode) {
-  if (length(mode) != 1L || !mode %in% c("flat", "vb")) {
+                                            mode, vb_summary = "auto",
+                                            Z = NULL, details = FALSE,
+                                            vb_seed = NULL) {
+  if (length(mode) != 1L || !mode %in% c("flat", "vb"))
     stop("Specify prior mode explicitly: 'flat' or 'vb'.")
+  if (identical(mode, "flat")) {
+    out <- list(weights=rep(0.5,length(loc_slices)), version="flat", association=NULL)
+  } else {
+    out <- bmim_vb_prior(X,y,loc_slices,W_mat,Z,vb_summary,seed=vb_seed)
   }
-  P <- length(loc_slices)
-  if (identical(mode, "flat")) return(rep(0.5, P))
-  if (!requireNamespace("ClusterR", quietly = TRUE)) {
-    stop("VB mode requires the ClusterR R package. Do not silently use flat prior.")
-  }
-  if (!exists("VBprop", mode = "function", inherits = TRUE)) {
-    stop("Source ISGM_core.R before requesting legacy VB probabilities.")
-  }
-  g_col <- as.numeric(cor(scale(y), X)^2)
-  if (length(g_col) != ncol(X) || any(!is.finite(g_col))) {
-    stop("Cannot compute squared-correlation VB summary (check constant columns).")
-  }
-  g_loc <- vapply(loc_slices, function(idx) mean(g_col[idx]), numeric(1L))
-  p_prop <- VBprop(
-    y = data.frame(g_loc), X = X, lambda = 1, h = 0,
-    num_locs = P, corrmat = W_mat, iters = 15, true_dist = 0
-  )
-  p_prop <- pmin(pmax(as.numeric(p_prop), 1e-8), 1 - 1e-8)
-  if (length(p_prop) != P || any(!is.finite(p_prop))) {
-    stop("Legacy VB returned invalid per-node probabilities.")
-  }
-  p_prop
+  if (details) out else out$weights
 }
 
 # Validate the four ORIGINAL Case-2 group moments. These are computed from
@@ -105,7 +89,7 @@ bmim_simulation_check_demo_stats <- function(demo_stats) {
 # build_W_matrix(mode='data') procedure. It does NOT use chosen_locs or y.
 # For a fixed structural network, pass W_mat explicitly (symmetric P-by-P).
 #
-# prior_mode must be 'vb' (legacy response-derived empirical Bayes) or
+# prior_mode must be 'vb' (response-derived empirical Bayes) or
 # 'flat' (a benchmark with all Bernoulli weights equal to 0.5).
 #
 # pi_b must be given explicitly: a number strictly between 0 and 1 to test
@@ -122,7 +106,7 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
                                 min_domain_length = 1L,
                                 n_domain_updates_per_sweep = 1L,
                                 domain_prior_jump_prob = 0.5,
-                                demo_stats = NULL) {
+                                demo_stats = NULL, vb_summary = "auto") {
   required <- c("simulate_one_dataset", "build_W_matrix",
                 "bmim_joint_domains_from_features")
   missing <- required[!vapply(required, exists, logical(1L),
@@ -192,9 +176,11 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
       max(abs(W_mat - t(W_mat))) > 1e-9) {
     stop("The empirical network is not a finite symmetric matrix.")
   }
-  p_prop <- bmim_simulation_selection_prior(
-    design$X, sim$sim_scores, design$loc_slices, W_mat, prior_mode
+  vb <- bmim_simulation_selection_prior(
+    design$X, sim$sim_scores, design$loc_slices, W_mat, prior_mode,
+    vb_summary = vb_summary, details = TRUE
   )
+  p_prop <- vb$weights
 
   # The wrapper standardizes X and y once, exactly like the ISGM preprocessing.
   # No response-dependent FocusGP window selection is performed.
@@ -223,7 +209,8 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
                     demo_stats else NULL,
                   num_locs = cfg$num_locs, num_T = cfg$num_T,
                   max_domain_length = max_domain_length,
-                  prior_mode = prior_mode, pi_b = pi_b,
+                  prior_mode = prior_mode, vb_summary = if (is.null(vb$association)) "flat" else vb$association$method,
+                  vb_version = vb$version, pi_b = pi_b,
                   n_iter = n_iter, burnin = burnin, n_chains = n_chains),
     summary = data.frame(
       real_process = as.integer(real_process),
@@ -233,6 +220,7 @@ bmim_simulation_one <- function(cfg, real_process, max_domain_length,
       max_domain_length = max_domain_length
     ),
     p_prop = p_prop,
+    vb = vb,
     W_mat = W_mat
   )
 }

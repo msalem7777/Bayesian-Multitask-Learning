@@ -30,6 +30,8 @@ if (length(.bmim_source_files) == 0L) {
 .bmim_current_file <- tail(.bmim_source_files, 1L)[[1L]]
 source(file.path(dirname(normalizePath(.bmim_current_file)),
                  "bmim_gp_updates.R"), local = TRUE)
+source(file.path(dirname(normalizePath(.bmim_current_file)),
+                 "bmim_vb_prior.R"), local = TRUE)
 rm(.bmim_current_file, .bmim_source_files)
 
 # -------------------------------
@@ -432,6 +434,17 @@ VB = function(y, X, corrmat, lambda = 1.0, h=0, iters=50, GP = 0, num_locs, Sigm
 
 VBprop = function(y, X, corrmat, lambda = 1.0, h=0, iters=50, GP = 0, num_locs, Sigmat = NULL, thresh = 0.9, plot_on=FALSE, true_dist = 0){
   
+  # The ordinary Gaussian/half-normal working model used by BMIM now
+  # delegates to the independently tested full-coordinate implementation.
+  if (GP == 0 && true_dist == 0 && h == 0) {
+    if (length(as.numeric(as.matrix(y))) != num_locs)
+      stop("VBprop requires one association summary per node.")
+    fit <- bmim_vb_fit(y, corrmat, iters=iters, lambda=lambda)
+    if (plot_on) plot(seq.int(0,iters), fit$objective, type="l",
+                      xlab="VB sweep", ylab="ELBO (up to constant)")
+    return(fit$weights)
+  }
+  # Experimental legacy h/GP/true_dist branches are not used by joint BMIM.
   ELBO = numeric(iters)
   Hx_mean = numeric(iters)
   
@@ -521,11 +534,7 @@ VBprop = function(y, X, corrmat, lambda = 1.0, h=0, iters=50, GP = 0, num_locs, 
     
     muNew = mu
     
-    if(GP == 0){
-      rlistr = c(sample(seq(1,(length(y))), replace = FALSE))  
-    } else if(GP == 1){
-      rlistr = c(sample(seq(1,num_locs), replace = FALSE))  
-    }
+    rlistr <- sample.int(num_locs, replace = FALSE)
     
     
     for (j in rlistr){

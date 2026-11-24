@@ -65,7 +65,7 @@ The test enumerates all **150 discrete** `(b,xi,A)` states for 2 nodes × 5 wind
 
 `& $rs -e "source('checks/bmim_joint_domain_gp_smoke.R')"`
 
-### Run all seven scripts, including the previous six checks
+### Run all eight scripts, including the seven previous checks
 
 `& $rs -e "source('checks/run_all_tests_joint.R')"`
 
@@ -105,17 +105,21 @@ fit$posterior_node_time_joint_gp
 fit$posterior_node_time_given_gp
 ```
 
-The helper `bmim_joint_domains_from_features(...)` standardizes functional columns. When `Z` is supplied it adds an intercept, standardizes nonconstant scalar columns using input data only, and uses the original response (or a user-supplied fixed scale) without OLS residualization. When `Z=NULL` and `response_scale=NULL`, the historical response standardization is preserved. It still requires `p_prop` explicitly; the empirical-Bayes selection prior is not silently recalculated. The historical fixed-domain drivers are not migrated by this change.
+The helper `bmim_joint_domains_from_features(...)` standardizes functional columns. When `Z` is supplied it adds an intercept, standardizes nonconstant scalar columns using input data only, and uses the original response (or a user-supplied fixed scale) without OLS residualization. When `Z=NULL` and `response_scale=NULL`, the historical response standardization is preserved. Supply `p_prop` explicitly to bypass VB, or omit it to construct fixed empirical weights once before MCMC (see `R/VB_PRIOR.md`). The historical fixed-domain drivers are not migrated by this change.
 
 ## Methodological choices requiring simulation review
 
 1. Domain prior: uniform length and uniform start, **not** the former response-tuned FocusGP criterion. If biologically informative interval-length priors are known, specify these deliberately before simulation campaigns.
 2. A global indicator is optional (`pi_b=NULL` means always GP). To evaluate the Bernoulli test, specify the prior `pi_b` intentionally.
-3. Conditional-EB VB probabilities `p_prop` must be constructed on the **complete trajectories** once, independent of sampled domains, and then frozen. The wrapper does not refit VB.
+3. Conditional-EB VB probabilities `p_prop` must be constructed on the **complete trajectories** once, independent of sampled domains, and then frozen. The wrapper optionally fits VB once; it never refits it during MCMC.
 4. Numerical/selection calibration, scale prior sensitivity, and actual HPC throughput remain to be tested.
 5. `fixed_gp` is ONLY an oracle-validation switch. Omit in full simulations.
 6. The original manuscript is NOT yet updated for this joint-domain model; it must be updated after the implementation and scientific prior choices are approved.
 
 ## Test gate
 
-Do not commit/push as production simulation-ready until the new exact-discrete validation and the complete seven-test suite pass, followed by multiple-chain mixing diagnostics in a somewhat larger representative problem and a single Falcon dry run.
+Do not commit/push as production simulation-ready until the new exact-discrete validation and the complete eight-test suite pass, followed by multiple-chain mixing diagnostics in a somewhat larger representative problem and a single Falcon dry run.
+
+## Empirical VB prior (vb2)
+
+See [R/VB_PRIOR.md](R/VB_PRIOR.md) for association choices, corrected coordinate updates, diagnostics, validation and production-result versioning. Default `vb_summary="auto"` resolves to MI without scalar covariates and residual MI with scalar covariates. Existing explicit `p_prop` callers remain unchanged.

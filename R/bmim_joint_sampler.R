@@ -354,15 +354,17 @@ bmim_joint_domain_mcmc <- function(X_s, y_tilde, loc_slices,
 
 # Convenience wrapper: preserve legacy no-Z preprocessing; with Z, fit
 # scalar effects coherently in the likelihood, never by OLS residualization.
-# p_prop must be EXPLICIT. For the flat-VB benchmark the caller may choose
-# rep(0.5,P); for EB-VB use the fixed probabilities from the VB stage.
+# Supply p_prop explicitly to bypass VB (e.g. flat weights), or omit it
+# to construct fixed empirical weights once on complete trajectories.
 # This wrapper assumes each node's full-time columns are adjacent, as in ISGM.
 bmim_joint_domains_from_features <- function(path_features, W_mat, y,
-                                              grps_vec, p_prop,
+                                              grps_vec, p_prop = NULL,
                                               max_domain_length,
                                               Z = NULL, connec = 1,
                                               beta_mode = c("integrated", "sampled"),
                                               response_scale = NULL,
+                                              vb_summary = "auto", vb_iters = 15L,
+                                              vb_seed = 20261124L,
                                               ...) {
   X <- as.matrix(path_features)
   storage.mode(X) <- "double"
@@ -405,12 +407,19 @@ bmim_joint_domains_from_features <- function(path_features, W_mat, y,
       design <- cbind("(Intercept)" = 1, Z_s)
     } else design <- matrix(1, nrow(X), 1L, dimnames=list(NULL,"(Intercept)"))
   }
+  vb <- NULL
+  if (is.null(p_prop)) {
+    vb <- bmim_vb_prior(X, y, loc_slices, W_mat, Z = design,
+                        vb_summary = vb_summary, iters = vb_iters, seed = vb_seed)
+    p_prop <- vb$weights
+  }
   fit <- bmim_joint_domain_mcmc(
     X_s = X_s, y_tilde = y_s, loc_slices = loc_slices,
     W_mat = W_mat * connec, p_prop = p_prop,
     max_domain_length = max_domain_length, Z = design,
     beta_mode = beta_mode, ...
   )
+  fit$vb <- vb
   fit$response_preprocessing <- list(
     method = if (legacy_scaling) "legacy_standardized" else "fixed_scale",
     center = if (legacy_scaling) mean(y) else 0,

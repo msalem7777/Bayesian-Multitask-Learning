@@ -10,8 +10,9 @@ cat("=== LEGACY VALIDATED FOUR-CHECK SUITE ===\n")
 source(file.path(check_dir,"run_all_tests.R"), local=new.env(parent=globalenv()))
 for (name in c("bmim_joint_domain_smoke.R",
                "bmim_joint_domain_gp_smoke.R",
-               "bmim_scalar_effects_smoke.R")) {
+               "bmim_scalar_effects_smoke.R",
+               "bmim_vb_prior_smoke.R")) {
   cat("\n=== ",name," ===\n",sep="")
   source(file.path(check_dir,name),local=new.env(parent=globalenv()))
 }
-cat("\nBMIM ALL SEVEN VALIDATION SCRIPTS: PASS\n")
+cat("\nBMIM ALL EIGHT VALIDATION SCRIPTS: PASS\n")

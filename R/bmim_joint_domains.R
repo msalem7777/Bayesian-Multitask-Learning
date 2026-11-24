@@ -15,6 +15,7 @@ if (length(.bmim_joint_files) == 0L) {
 .bmim_joint_root <- dirname(normalizePath(tail(.bmim_joint_files,1L)[[1L]]))
 for (.bmim_joint_name in c("bmim_domain_distances.R",
                            "bmim_scalar_effects.R",
+                           "bmim_vb_prior.R",
                            "bmim_domain_updates.R",
                            "bmim_joint_sampler.R")) {
   source(file.path(.bmim_joint_root,.bmim_joint_name), local=TRUE)

@@ -36,7 +36,10 @@ if [[ "$case_name" == 'case1' && "$p" == '30' ]]; then base_seed=420000; fi
 if [[ "$case_name" == 'case2' && "$p" == '10' ]]; then base_seed=430000; fi
 if [[ "$case_name" == 'case2' && "$p" == '30' ]]; then base_seed=440000; fi
 
-tag="production_${case_name}_p${p}_100x2"
+# New VB algorithms must never share historical campaign result identities.
+vb_summary="${BMIM_VB_SUMMARY:-mi}"
+[[ "$vb_summary" == 'mi' || "$vb_summary" == 'sq.corr' ]] || { echo 'BMIM_VB_SUMMARY must be mi or sq.corr.' >&2; exit 2; }
+tag="production_${case_name}_p${p}_100x2_vb2_${vb_summary}"
 results_dir="$HOME/BMIM_results"
 mkdir -p "$results_dir/logs"
 
@@ -54,6 +57,7 @@ fi
 # before sbatch to prevent accidentally inheriting stale BMIM_* settings.
 export BMIM_CASE="$case_name" BMIM_N=200 BMIM_P="$p" BMIM_LMAX=20
 export BMIM_ITER="$iterations" BMIM_BURNIN="$burnin" BMIM_CHAINS=4
+export BMIM_VB_SUMMARY="$vb_summary"
 export BMIM_PRIOR=vb BMIM_PI_B=0.5 BMIM_REPLICATES_PER_SCENARIO=100
 export BMIM_RANDOMIZE_NODES=1 BMIM_BASE_SEED="$base_seed" BMIM_RUN_TAG="$tag"
 export BMIM_CAMPAIGN_GENERATION=0 BMIM_CAMPAIGN_MAX_GENERATIONS=30

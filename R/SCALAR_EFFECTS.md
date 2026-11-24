@@ -90,9 +90,9 @@ Z is NULL; no intercept is automatically added in that case. The direct sampler
 performs no response scaling. Do not compare evidence between fits with
 inconsistent preprocessing/prior choices.
 
-The caller supplies fixed `p_prop`, exactly as before. No VB weights are
-recomputed internally. Whether these weights should be constructed using
-scalar-adjusted associations requires a separate scientific decision. The
+The caller may supply fixed `p_prop`, exactly as before, or omit it to
+construct empirical weights once using the options in `VB_PRIOR.md`.
+No VB weights are recomputed during MCMC. The
 resulting global probability is conditional empirical Bayes, not a calibrated
 frequentist p-value. Existing fixed-domain and historical ABIDE scripts are
 not silently converted; call the joint wrapper for scalar-aware analysis.
