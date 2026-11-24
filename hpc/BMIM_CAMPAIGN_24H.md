@@ -110,4 +110,4 @@ Source files:
 
 ## VB version separation
 
-New submissions use `BMIM_VB_SUMMARY` (`mi` by default, or `sq.corr`) and a `vb2`-specific tag. Keep any running historical campaigns and their successors on their original checkout; never pull new code into their working tree while they run. New VB batch runners refuse the old production tags and use versioned result paths. No old result is overwritten.
+New submissions use `BMIM_VB_SUMMARY` (`sq.corr` by default, or `mi`) and a `vb2`-specific tag. Keep any running historical campaigns and their successors on their original checkout; never pull new code into their working tree while they run. New VB batch runners refuse the old production tags and use versioned result paths. No old result is overwritten.

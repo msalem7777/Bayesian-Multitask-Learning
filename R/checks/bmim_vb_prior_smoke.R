@@ -59,7 +59,16 @@ adj <- bmim_vb_associations(X,y,loc,Z,"partial.sq.corr")
 stopifnot(raw$node[1]>.8,adj$node[1]<1e-12,
           abs(adj$node[2]-.5)<1e-12,adj$node[3]==0,
           identical(unname(adj$zero_columns),3L),
-          bmim_vb_method("auto")=="mi",bmim_vb_method("auto",Z)=="residual.mi")
+          bmim_vb_method("auto")=="sq.corr",
+          bmim_vb_method("auto",Z)=="partial.sq.corr",
+          bmim_vb_method()=="sq.corr",
+          bmim_vb_method(Z=Z)=="partial.sq.corr",
+          bmim_vb_method("sq.corr",Z)=="sq.corr",
+          bmim_vb_method("mi",Z)=="mi",
+          bmim_vb_method("residual.mi",Z)=="residual.mi")
+# Default association calculation must match the explicit correlation choice.
+stopifnot(identical(bmim_vb_associations(X,y,loc),raw),
+          identical(bmim_vb_associations(X,y,loc,Z),adj))
 stopifnot(inherits(try(bmim_vb_method("conditional.mi",Z),silent=TRUE),"try-error"),
           inherits(try(bmim_vb_method("residual.mi"),silent=TRUE),"try-error"))
 neutral <- bmim_vb_fit(rep(.1,4),W)
@@ -110,10 +119,27 @@ for (method in c("sq.corr","partial.sq.corr","mi","residual.mi")) {
   explicit <- do.call(bmim_joint_domains_from_features,args)
   stopifnot(is.null(explicit$vb),all(explicit$p_prop==.5))
 }
+# Verify the default wrapper dispatch, with and without scalar covariates.
+for (has_z in c(FALSE,TRUE)) {
+  Z_default <- if (has_z) matrix(z,ncol=1) else NULL
+  args <- list(path_features=X,W_mat=W,y=y,grps_vec=loc,max_domain_length=1L,
+               Z=Z_default,vb_seed=995L,n_iter=8L,burnin=2L,n_chains=1L,
+               fixed_gp=list(d=1,g=.3),pi_b=.5,seed=996L)
+  automatic <- do.call(bmim_joint_domains_from_features,args)
+  args$vb_summary <- if (has_z) "partial.sq.corr" else "sq.corr"
+  explicit <- do.call(bmim_joint_domains_from_features,args)
+  stopifnot(automatic$vb$association$method==args$vb_summary,
+            identical(automatic$p_prop,explicit$p_prop),
+            identical(automatic$posterior_gp_included,explicit$posterior_gp_included))
+}
 # Simulation adapter uses the same constructor and keeps flat mode unchanged.
 set.seed(997); old_rng <- .Random.seed
 v <- bmim_simulation_selection_prior(X,y,loc,W,"vb",vb_summary="mi",details=TRUE,vb_seed=998L)
 stopifnot(identical(old_rng,.Random.seed),v$association$method=="mi",all(v$updates==15L),
           all(bmim_simulation_selection_prior(X,y,loc,W,"flat")==.5))
+default_v <- bmim_simulation_selection_prior(X,y,loc,W,"vb",details=TRUE,vb_seed=998L)
+explicit_v <- bmim_simulation_selection_prior(X,y,loc,W,"vb",vb_summary="sq.corr",details=TRUE,vb_seed=998L)
+stopifnot(default_v$association$method=="sq.corr",identical(default_v$weights,explicit_v$weights))
+cat("VB CORRELATION DEFAULT DISPATCH: PASS\n")
 cat("VB FEATURE WRAPPER / SIMULATION ADAPTER / RNG: PASS\n")
 cat("BMIM VB PRIOR SMOKE: PASS\n")

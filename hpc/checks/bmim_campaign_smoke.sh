@@ -33,6 +33,7 @@ cat > "$tmp/bin/sbatch" <<'MOCK'
 printf '%s\n' "$*" >> "$BMIM_MOCK_DIR/sbatch_calls"
 echo "${BMIM_CAMPAIGN_GENERATION:-UNSET}" >> "$BMIM_MOCK_DIR/generation_calls"
 echo "${BMIM_CASE:-UNSET} ${BMIM_P:-UNSET} ${BMIM_ITER:-UNSET} ${BMIM_BURNIN:-UNSET} ${BMIM_REPLICATES_PER_SCENARIO:-UNSET}" >> "$BMIM_MOCK_DIR/submitted_configs"
+printf '%s %s\n' "${BMIM_VB_SUMMARY:-UNSET}" "${BMIM_RUN_TAG:-UNSET}" >> "$BMIM_MOCK_DIR/submitted_vb"
 echo '777777'
 MOCK
 cat > "$tmp/bin/scancel" <<'MOCK'
@@ -108,7 +109,8 @@ echo 'CAMPAIGN SMOKE, USR1 and pending-only cleanup: PASS'
 # The mocked sbatch receives the calls; no actual Slurm jobs are submitted.
 mkdir -p "$tmp/BMIM_inputs"
 touch "$tmp/BMIM_inputs/case2_stats.rds"
-rm -f "$tmp/mock/submitted_configs"
+rm -f "$tmp/mock/submitted_configs" "$tmp/mock/submitted_vb"
+unset BMIM_VB_SUMMARY
 for case_name in case1 case2; do
   for p in 10 30; do
     HOME="$tmp" bash "$root/hpc/bmim_campaign_submit.sh" "$case_name" "$p" > "$tmp/mock/submit_${case_name}_${p}.log"
@@ -119,5 +121,10 @@ grep -q '^case1 10 2500 500 100$' "$tmp/mock/submitted_configs" || { echo 'FAIL:
 grep -q '^case1 30 6000 1000 100$' "$tmp/mock/submitted_configs" || { echo 'FAIL: case1 P30 settings'; exit 1; }
 grep -q '^case2 10 2500 500 100$' "$tmp/mock/submitted_configs" || { echo 'FAIL: case2 P10 settings'; exit 1; }
 grep -q '^case2 30 6000 1000 100$' "$tmp/mock/submitted_configs" || { echo 'FAIL: case2 P30 settings'; exit 1; }
+[[ "$(wc -l < "$tmp/mock/submitted_vb")" -eq 4 ]] || { echo 'FAIL: expected four VB settings'; exit 1; }
+[[ "$(grep -c '^sq[.]corr production_.*_vb2_sq[.]corr$' "$tmp/mock/submitted_vb")" -eq 4 ]] || { echo 'FAIL: default VB method or tag'; exit 1; }
+HOME="$tmp" BMIM_VB_SUMMARY=mi bash "$root/hpc/bmim_campaign_submit.sh" case1 10 > "$tmp/mock/submit_mi.log"
+grep -q '^mi production_case1_p10_100x2_vb2_mi$' "$tmp/mock/submitted_vb" || { echo 'FAIL: explicit MI override'; exit 1; }
+echo 'CAMPAIGN SMOKE, correlation default and explicit MI override: PASS'
 echo 'CAMPAIGN SMOKE, four initial submissions: PASS'
 echo 'BMIM CAMPAIGN ORCHESTRATOR SMOKE: PASS'

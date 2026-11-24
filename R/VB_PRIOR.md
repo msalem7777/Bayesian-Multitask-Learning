@@ -10,7 +10,7 @@ The feature wrapper now accepts either explicit `p_prop` (bypasses VB) or
 
 | `vb_summary` | Calculation |
 |---|---|
-| `auto` (default) | `mi` without Z; `residual.mi` with Z |
+| `auto` (default) | `sq.corr` without Z; `partial.sq.corr` with Z |
 | `sq.corr` | Squared Pearson correlation |
 | `partial.sq.corr` | Squared correlation after projecting both variables off Z |
 | `mi` | Empirical mutual information of discretized measurements |
@@ -28,7 +28,9 @@ functional predictors and scalar-aware response likelihood, not these
 residuals. Residual MI is NOT conditional MI in general. Conditional MI is
 not exposed until an estimator has been agreed on and validated.
 
-The MI defaults are candidate scientific choices, not demonstrated winners.
+The correlation defaults are the chosen operating convention after the paired
+pilot, not demonstrated universally superior measures. MI remains available
+explicitly, including for scalar-adjusted analyses.
 Finite-sample bias, binning, local signals diluted by full-domain averaging,
 and interactions without marginal evidence remain important limitations.
 The auxiliary Gaussian/half-normal working densities are approximations,
@@ -103,7 +105,7 @@ GMM, all four wrapper options, explicit weights, and reproducibility.
 
 ## HPC / old results
 
-No-scalar batch scripts accept `BMIM_VB_SUMMARY=mi` (default) or `sq.corr`.
+No-scalar batch scripts accept `BMIM_VB_SUMMARY=sq.corr` (default) or `mi`.
 VB result directories now have a `vb2_mi` or `vb2_sq.corr` suffix, and the
 result metadata records both algorithm version and measure. The new campaign
 submitter adds the same suffix to its run tag. Old production tags are refused

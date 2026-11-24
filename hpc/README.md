@@ -82,7 +82,7 @@ resource limits, and whether to randomize node identities.
 | `BMIM_CHAINS` | `4` | Independent chains |
 | `BMIM_REPLICATES_PER_SCENARIO` | `1` | Number of null AND number of signal replicates |
 | `BMIM_PRIOR` | `vb` | `vb` or `flat` |
-| `BMIM_VB_SUMMARY` | `mi` | `mi` or `sq.corr` (no-scalar runs) |
+| `BMIM_VB_SUMMARY` | `sq.corr` | `mi` or `sq.corr` (no-scalar runs) |
 | `BMIM_PI_B` | `0.5` | Prior probability the GP is present |
 | `BMIM_BASE_SEED` | `19700` | Seed of task 0; task ID is added |
 | `BMIM_RUN_TAG` | `pilot` | Results directory name; set uniquely per study |

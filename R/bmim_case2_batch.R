@@ -104,7 +104,7 @@ bmim_batch_main <- function() {
   seed_base <- bmim_batch_integer("BMIM_BASE_SEED", 19700L, 1L)
   pi_b <- bmim_batch_probability("BMIM_PI_B", 0.5)
   prior <- Sys.getenv("BMIM_PRIOR", unset = "vb")
-  vb_summary <- Sys.getenv("BMIM_VB_SUMMARY", unset = "mi")
+  vb_summary <- Sys.getenv("BMIM_VB_SUMMARY", unset = "sq.corr")
   if (!vb_summary %in% c("mi", "sq.corr"))
     stop("No-scalar simulation requires BMIM_VB_SUMMARY=mi or sq.corr.")
   vb_version <- if (prior == "vb") "vb2" else "flat"

@@ -37,7 +37,7 @@ if [[ "$case_name" == 'case2' && "$p" == '10' ]]; then base_seed=430000; fi
 if [[ "$case_name" == 'case2' && "$p" == '30' ]]; then base_seed=440000; fi
 
 # New VB algorithms must never share historical campaign result identities.
-vb_summary="${BMIM_VB_SUMMARY:-mi}"
+vb_summary="${BMIM_VB_SUMMARY:-sq.corr}"
 [[ "$vb_summary" == 'mi' || "$vb_summary" == 'sq.corr' ]] || { echo 'BMIM_VB_SUMMARY must be mi or sq.corr.' >&2; exit 2; }
 tag="production_${case_name}_p${p}_100x2_vb2_${vb_summary}"
 results_dir="$HOME/BMIM_results"

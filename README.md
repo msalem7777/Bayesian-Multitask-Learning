@@ -122,4 +122,4 @@ Do not commit/push as production simulation-ready until the new exact-discrete v
 
 ## Empirical VB prior (vb2)
 
-See [R/VB_PRIOR.md](R/VB_PRIOR.md) for association choices, corrected coordinate updates, diagnostics, validation and production-result versioning. Default `vb_summary="auto"` resolves to MI without scalar covariates and residual MI with scalar covariates. Existing explicit `p_prop` callers remain unchanged.
+See [R/VB_PRIOR.md](R/VB_PRIOR.md) for association choices, corrected coordinate updates, diagnostics, validation and production-result versioning. Default `vb_summary="auto"` resolves to squared Pearson correlation without scalar covariates and squared partial correlation with scalar covariates. MI and residual MI remain explicit options. Existing explicit `p_prop` callers remain unchanged.

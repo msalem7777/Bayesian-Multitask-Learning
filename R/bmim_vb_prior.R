@@ -3,7 +3,7 @@
 bmim_vb_method <- function(vb_summary = "auto", Z = NULL) {
   method <- match.arg(vb_summary, c("auto", "sq.corr", "partial.sq.corr",
                                      "mi", "residual.mi"))
-  if (method == "auto") method <- if (is.null(Z)) "mi" else "residual.mi"
+  if (method == "auto") method <- if (is.null(Z)) "sq.corr" else "partial.sq.corr"
   if (method %in% c("partial.sq.corr", "residual.mi") && is.null(Z))
     stop("Scalar-adjusted VB summaries require Z (use the unadjusted variant otherwise).")
   method
