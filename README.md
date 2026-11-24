@@ -1,4 +1,15 @@
-# BMIM joint node / functional-domain sampler (experimental, not Falcon-ready)
+# BMIM joint node / functional-domain sampler
+
+## Scalar regression effects (new)
+
+The joint sampler now supports two mathematically equivalent approaches for
+scalar regression coefficients: analytical integration (default) and explicit
+Gaussian conditional sampling. See [Scalar-effect model and usage](R/SCALAR_EFFECTS.md)
+for the model, API, prior defaults, response scaling, and validation gate.
+The existing no-covariate production workflow is unchanged. The scalar-aware
+R tests have not yet been executed; validate before production.
+
+## Historical joint-domain extension notes
 
 This archive adds **three standalone base-R modules plus one thin loader**, and **two new test scripts** to the last GP / Ising / global-Bernoulli release which passed the user's four validation scripts. The previously validated modules are retained **unchanged**; they are provided to make a reproducible local test package. Do **not** overwrite newer local source blindly.
 
@@ -18,7 +29,7 @@ This is NOT the old FocusGP penalty, is NOT a response-trained domain prior, and
 
 With optional `pi_b` in (0,1), the null is `Y|b=0,sigma0^2 ~ N(0,sigma0^2 I)` with its **own** proper inverse-gamma prior. The two scale variances are integrated analytically in all node/domain/GP-model moves and redrawn afterward. Under `b=0`, the domains and indicators are auxiliary prior variables, so **interpret node-inclusion outputs conditional on `b=1` or jointly with `b=1`**, not the unconditional auxiliary xi probability.
 
-The likelihood is conditional on fixed response-derived VB factors and on any response residualization; inference is **empirical Bayes and is not a selection-adjusted frequentist p-value**. Unlike the previous shortlist test, this sampler updates node configurations and intervals jointly without truncating their state space.
+For the original no-scalar model, the likelihood uses the preprocessed response. With scalar covariates, use the new model documented above rather than residualizing the response. The likelihood is conditional on fixed response-derived VB factors; inference is **empirical Bayes and is not a selection-adjusted frequentist p-value**. Unlike the previous shortlist test, this sampler updates node configurations and intervals jointly without truncating their state space.
 
 ## Why node activation also proposes a domain
 
@@ -30,7 +41,7 @@ The maximum interval length reduces the candidate space and the cost of construc
 
 ## Exact install: copy into the existing local R/ folder
 
-**Seven files are new:**
+**Seven files were introduced in the original joint-domain extension:**
 
 - `bmim_domain_distances.R` — domain geometry, distance matrices, prior, and proposals
 - `bmim_domain_updates.R` — active-domain and joint node/domain MH transitions
@@ -40,7 +51,7 @@ The maximum interval length reduces the candidate space and the cost of construc
 - `checks/bmim_joint_domain_gp_smoke.R` — GP/Ising/global integration smoke
 - `checks/run_all_tests_joint.R` — run all previous tests plus new ones
 
-Keep your currently validated `bmim_gp_updates.R`, `bmim_global_gp_test.R`, `bmim_global_gp_mcmc.R`, `ISGM_core.R` and the original four smoke scripts. The release includes reference copies, but none requires replacement for this extension.
+The original joint-domain extension kept the fixed-domain modules unchanged. The scalar-effect update now adds optional likelihood callbacks to `bmim_gp_updates.R` (legacy defaults unchanged); copy the complete scalar update, including the loader and tests. `bmim_global_gp_test.R`, `bmim_global_gp_mcmc.R`, and `ISGM_core.R` remain unchanged.
 
 ### Run the independent joint toy
 
@@ -54,11 +65,11 @@ The test enumerates all **150 discrete** `(b,xi,A)` states for 2 nodes × 5 wind
 
 `& $rs -e "source('checks/bmim_joint_domain_gp_smoke.R')"`
 
-### Run all six scripts, including the previous four checks
+### Run all seven scripts, including the previous six checks
 
 `& $rs -e "source('checks/run_all_tests_joint.R')"`
 
-**The R tests were written but could not be executed in the author's environment** (no Rscript available). The previous four scripts already passed in the user's R installation; the two new scripts still require execution on that machine. Structural delimiter checks on the new R files passed. Do not launch Falcon production runs on this unverified extension.
+**The new scalar-effect R tests require execution in an R installation.** The earlier six tests must also be rerun after the update. Do not launch scalar-aware production runs until validation passes.
 
 ## Example of the joint entry point
 
@@ -94,7 +105,7 @@ fit$posterior_node_time_joint_gp
 fit$posterior_node_time_given_gp
 ```
 
-The helper `bmim_joint_domains_from_features(...)` reproduces the *current ISGM's* one-time `scale()` of all function columns and response, with optional nuisance-regression residualization. It requires `p_prop` explicitly to avoid silently changing the empirical-Bayes selection prior. Do not treat this as an exact drop-in to the older simulation drivers: the production drivers still need to be rewired and inspected.
+The helper `bmim_joint_domains_from_features(...)` standardizes functional columns. When `Z` is supplied it adds an intercept, standardizes nonconstant scalar columns using input data only, and uses the original response (or a user-supplied fixed scale) without OLS residualization. When `Z=NULL` and `response_scale=NULL`, the historical response standardization is preserved. It still requires `p_prop` explicitly; the empirical-Bayes selection prior is not silently recalculated. The historical fixed-domain drivers are not migrated by this change.
 
 ## Methodological choices requiring simulation review
 
@@ -107,4 +118,4 @@ The helper `bmim_joint_domains_from_features(...)` reproduces the *current ISGM'
 
 ## Test gate
 
-Do not commit/push as production simulation-ready until the new exact-discrete validation and the complete six-test suite pass, followed by multiple-chain mixing diagnostics in a somewhat larger representative problem and a single Falcon dry run.
+Do not commit/push as production simulation-ready until the new exact-discrete validation and the complete seven-test suite pass, followed by multiple-chain mixing diagnostics in a somewhat larger representative problem and a single Falcon dry run.

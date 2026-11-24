@@ -21,7 +21,8 @@ bmim_joint_log_alt_kernel <- function(y, D_total, gp, gp_prior) {
 bmim_joint_update_domain <- function(p, xi, A, D_by_loc, D_total,
                                      X_s, loc_slices, domain_priors,
                                      y, b, gp, gp_prior,
-                                     prior_jump_probability) {
+                                     prior_jump_probability,
+                                     log_alt = bmim_joint_log_alt_kernel) {
   if (xi[p] == 0L || b == 0L) {
     # The data are uninformative about A_p when xi[p]=0 or b=0.
     # Draw A_p exactly from its prior. IMPORTANT: if b=0 but xi[p]=1,
@@ -50,8 +51,8 @@ bmim_joint_update_domain <- function(p, xi, A, D_by_loc, D_total,
   D_proposed <- bmim_joint_distance_replace(
     D_total, D_by_loc[[p]], D_new_p
   )
-  lr <- bmim_joint_log_alt_kernel(y, D_proposed, gp, gp_prior) -
-    bmim_joint_log_alt_kernel(y, D_total, gp, gp_prior) +
+  lr <- log_alt(y, D_proposed, gp, gp_prior) -
+    log_alt(y, D_total, gp, gp_prior) +
     proposed$log_prior_and_proposal_ratio
   accepted <- is.finite(lr) && log(runif(1L)) < min(0, lr)
   if (accepted) {
@@ -69,7 +70,8 @@ bmim_joint_update_domain <- function(p, xi, A, D_by_loc, D_total,
 # The remaining MH ratio is the GP likelihood plus Ising/VB prior ratio.
 bmim_joint_flip_node <- function(p, xi, A, D_by_loc, D_total,
                                  X_s, loc_slices, domain_priors,
-                                 y, b, gp, gp_prior, W_mat, p_prop) {
+                                 y, b, gp, gp_prior, W_mat, p_prop,
+                                 log_alt = bmim_joint_log_alt_kernel) {
   xi_new <- xi
   xi_new[p] <- 1L - xi[p]
   if (sum(xi_new) == 0L) {
@@ -91,8 +93,8 @@ bmim_joint_flip_node <- function(p, xi, A, D_by_loc, D_total,
   lr <- bmim_joint_log_xi_prior(xi_new, W_mat, p_prop) -
     bmim_joint_log_xi_prior(xi, W_mat, p_prop)
   if (b == 1L) {
-    lr <- lr + bmim_joint_log_alt_kernel(y, D_prop, gp, gp_prior) -
-      bmim_joint_log_alt_kernel(y, D_total, gp, gp_prior)
+    lr <- lr + log_alt(y, D_prop, gp, gp_prior) -
+      log_alt(y, D_total, gp, gp_prior)
   }
   accepted <- is.finite(lr) && log(runif(1L)) < min(0, lr)
   if (accepted) {

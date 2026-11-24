@@ -1,6 +1,7 @@
 # ============================================================================
 # bmim_joint_domains.R -- modular loader for the JOINT DOMAIN EXTENSION.
-# No previously validated BMIM source file is overwritten.
+# Legacy fixed-domain defaults remain unchanged; scalar-aware callbacks
+# are available in bmim_gp_updates.R.
 # First source bmim_gp_updates.R and bmim_global_gp_test.R (as needed).
 # Then source THIS loader; it installs all standalone joint-domain modules.
 # ============================================================================
@@ -13,6 +14,7 @@ if (length(.bmim_joint_files) == 0L) {
 }
 .bmim_joint_root <- dirname(normalizePath(tail(.bmim_joint_files,1L)[[1L]]))
 for (.bmim_joint_name in c("bmim_domain_distances.R",
+                           "bmim_scalar_effects.R",
                            "bmim_domain_updates.R",
                            "bmim_joint_sampler.R")) {
   source(file.path(.bmim_joint_root,.bmim_joint_name), local=TRUE)

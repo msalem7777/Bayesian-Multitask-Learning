@@ -273,12 +273,13 @@ bmim_gp_slice_log_g <- function(g, log_target_z, width = 0.75,
 
 # Posterior log-density on z=log(g), using the scale-integrated likelihood.
 # The +z term is essential: it converts a density in g to one in log(g).
-bmim_gp_log_g_target_z <- function(z, y, D, d, prior) {
+bmim_gp_log_g_target_z <- function(z, y, D, d, prior,
+                                    log_marginal = bmim_gp_log_marginal_likelihood) {
   if (length(z) != 1L || !is.finite(z) || z > 700 || z < -700) {
     return(-Inf)
   }
   g <- exp(z)
-  bmim_gp_log_marginal_likelihood(y, D, d, g, prior) +
+  log_marginal(y, D, d, g, prior) +
     bmim_gp_log_prior_g(g, prior) + z
 }
 
@@ -289,7 +290,9 @@ bmim_gp_log_g_target_z <- function(z, y, D, d, prior) {
 # Then, in ISGM(), update xi conditional on this freshly sampled tau2.
 # This ordering preserves the original joint target. Do not insert a
 # tau2-conditional d/g move between steps 1 and 3.
-bmim_gp_update <- function(y, xi, D_by_loc, state, prior) {
+bmim_gp_update <- function(y, xi, D_by_loc, state, prior,
+                           log_marginal = bmim_gp_log_marginal_likelihood,
+                           draw_scale = TRUE) {
   D <- bmim_gp_selected_distance(D_by_loc, xi)
   d <- state$d
   g <- state$g
@@ -312,16 +315,16 @@ bmim_gp_update <- function(y, xi, D_by_loc, state, prior) {
     )
     # For an independence proposal q(d*) = p(d*), the proposal-density
     # ratio cancels the identical d-prior ratio in the MH acceptance.
-    current <- bmim_gp_log_marginal_likelihood(y, D, d, g, prior)
-    proposed <- bmim_gp_log_marginal_likelihood(
+    current <- log_marginal(y, D, d, g, prior)
+    proposed <- log_marginal(
       y, D, proposed_d, g, prior
     )
     log_ratio <- proposed - current
   } else {
-    current <- bmim_gp_log_marginal_likelihood(y, D, d, g, prior) +
+    current <- log_marginal(y, D, d, g, prior) +
       bmim_gp_log_prior_d(d, prior)
     proposed_d <- exp(log(d) + rnorm(1L, sd = prior$proposal_sd_d))
-    proposed <- bmim_gp_log_marginal_likelihood(
+    proposed <- log_marginal(
       y, D, proposed_d, g, prior
     ) + bmim_gp_log_prior_d(proposed_d, prior)
     log_ratio <- bmim_gp_log_mh_ratio(
@@ -344,7 +347,7 @@ bmim_gp_update <- function(y, xi, D_by_loc, state, prior) {
     method <- if (is.null(prior$g_update_method)) "rw" else prior$g_update_method
     if (identical(method, "slice")) {
       previous_g <- g
-      target_z <- function(z) bmim_gp_log_g_target_z(z, y, D, d, prior)
+      target_z <- function(z) bmim_gp_log_g_target_z(z, y, D, d, prior, log_marginal)
       g <- bmim_gp_slice_log_g(
         g, target_z,
         width = prior$g_slice_width_log,
@@ -355,10 +358,10 @@ bmim_gp_update <- function(y, xi, D_by_loc, state, prior) {
       # NOT a Metropolis-Hastings acceptance probability.
       accept_g <- is.finite(g) && g > 0 && g != previous_g
     } else if (identical(method, "rw")) {
-      current <- bmim_gp_log_marginal_likelihood(y, D, d, g, prior) +
+      current <- log_marginal(y, D, d, g, prior) +
         bmim_gp_log_prior_g(g, prior)
       proposed_g <- exp(log(g) + rnorm(1L, sd = prior$proposal_sd_g))
-      proposed <- bmim_gp_log_marginal_likelihood(y, D, d, proposed_g, prior) +
+      proposed <- log_marginal(y, D, d, proposed_g, prior) +
         bmim_gp_log_prior_g(proposed_g, prior)
       if (is.finite(proposed) && is.finite(current)) {
         log_ratio <- bmim_gp_log_mh_ratio(current, proposed, g, proposed_g)
@@ -371,11 +374,14 @@ bmim_gp_update <- function(y, xi, D_by_loc, state, prior) {
   }
 
   # Draw the GP scale after the collapsed d/g updates.
-  terms <- bmim_gp_cholesky_terms(bmim_gp_covariance(D, d, g), y)
-  if (is.null(terms)) stop("Current GP covariance is not positive definite.")
-  shape_post <- prior$tau_shape + length(y) / 2
-  rate_post <- prior$tau_rate + terms$quad / 2
-  tau2 <- 1 / rgamma(1L, shape = shape_post, rate = rate_post)
+  # Joint scalar-aware caller restores the variance after all collapsed moves.
+  if (draw_scale) {
+    terms <- bmim_gp_cholesky_terms(bmim_gp_covariance(D, d, g), y)
+    if (is.null(terms)) stop("Current GP covariance is not positive definite.")
+    shape_post <- prior$tau_shape + length(y) / 2
+    rate_post <- prior$tau_rate + terms$quad / 2
+    tau2 <- 1 / rgamma(1L, shape = shape_post, rate = rate_post)
+  }
 
   list(d = d, g = g, tau2 = tau2,
        accepted_d = accept_d, accepted_g = accept_g)
